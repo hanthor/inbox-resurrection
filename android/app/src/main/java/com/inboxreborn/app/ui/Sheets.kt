@@ -67,7 +67,12 @@ fun BundleDetailScreen(vm: InboxViewModel, bundleId: String, onBack: () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SnoozeSheet(ids: Set<String>, vm: InboxViewModel, onDone: () -> Unit) {
+fun SnoozeSheet(
+    ids: Set<String>,
+    vm: InboxViewModel,
+    onDone: () -> Unit,
+    onPickPlace: (Set<String>) -> Unit = {},
+) {
     ModalBottomSheet(onDismissRequest = onDone) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Snooze until…")
@@ -80,6 +85,7 @@ fun SnoozeSheet(ids: Set<String>, vm: InboxViewModel, onDone: () -> Unit) {
                             val millis = fireAt.atZone(ZoneId.systemDefault())
                                 .toInstant().toEpochMilli()
                             vm.snooze(ids, millis)
+                            vm.snoozeRemote(ids.first(), millis)
                             onDone()
                         },
                         label = { Text(preset.label) },
@@ -87,6 +93,12 @@ fun SnoozeSheet(ids: Set<String>, vm: InboxViewModel, onDone: () -> Unit) {
                     )
                 }
             }
+            FilterChip(
+                selected = false,
+                onClick = { onPickPlace(ids); onDone() },
+                label = { Text("Pick place") },
+                modifier = Modifier.padding(4.dp),
+            )
         }
     }
 }

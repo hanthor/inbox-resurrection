@@ -1,10 +1,16 @@
 package com.inboxreborn.app.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.inboxreborn.app.data.BackendClient
+import com.inboxreborn.app.data.IdBody
+import com.inboxreborn.app.data.PinBody
+import com.inboxreborn.app.data.SnoozeBody
 import com.inboxreborn.app.model.Bundle
 import com.inboxreborn.app.model.Tab
 import com.inboxreborn.app.model.ThreadItem
 import com.inboxreborn.app.model.Throttling
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,6 +110,72 @@ class InboxViewModel : ViewModel() {
     fun setTab(tab: Tab) = _ui.update { it.copy(tab = tab) }
     fun setPinnedOnly(v: Boolean) = _ui.update { it.copy(pinnedOnly = v) }
     fun setQuery(q: String) = _ui.update { it.copy(query = q) }
+
+    // ---- backend-backed ops (Phase 1; local state stays primary) ----
+
+    private var apiBase: String? = null
+    private var apiToken: String? = null
+
+    fun configureBackend(baseUrl: String, token: String) {
+        apiBase = baseUrl
+        apiToken = token
+    }
+
+    private fun auth(): String? = apiToken?.let { "Bearer $it" }
+
+    /** Pull live threads + reminders, replacing local stream. */
+    fun syncWithBackend(onResult: (Boolean) -> Unit = {}) {
+        val base = apiBase ?: return onResult(false)
+        val auth = auth() ?: return onResult(false)
+        viewModelScope.launch {
+            try {
+                val api = BackendClient.api(base)
+                val threads = api.threads(auth).threads.mapIndexed { i, t ->
+                    ThreadItem(id = t.id, from = t.from, subject = t.subject,
+                        snippet = t.snippet, timestampMillis = System.currentTimeMillis() - i * 600_000)
+                }
+                val reminders = try {
+                    api.reminders(auth).reminders.map { r ->
+                        ThreadItem(id = r.id, kind = ThreadItem.Kind.REMINDER,
+                            subject = r.subject, snippet = r.snippet,
+                            done = r.done, timestampMillis = System.currentTimeMillis())
+                    }
+                } catch (_: Exception) { emptyList() }
+                _ui.update { it.copy(threads = threads + reminders, pendingUndo = null) }
+                onResult(true)
+            } catch (_: Exception) {
+                onResult(false)
+            }
+        }
+    }
+
+    private fun mirror(block: suspend (com.inboxreborn.app.data.BackendApi, String) -> Unit) {
+        val base = apiBase ?: return
+        val auth = auth() ?: return
+        viewModelScope.launch {
+            try { block(BackendClient.api(base), auth) } catch (_: Exception) { /* offline-tolerant */ }
+        }
+    }
+
+    fun markDoneRemote(id: String) = mirror { api, auth -> api.done(auth, IdBody(id)) }
+    fun pinRemote(id: String, pinned: Boolean) = mirror { api, auth -> api.pin(auth, PinBody(id, pinned)) }
+    fun snoozeRemote(id: String, fireAt: Long) = mirror { api, auth -> api.snooze(auth, SnoozeBody(id, fireAt)) }
+
+    /** Place snooze: hide until arrival (far-future fallback keeps it snoozed). */
+    fun snoozeToPlace(ids: Set<String>) = mutate("Snoozed to place") { list ->
+        list.map {
+            if (it.id in ids) it.copy(snoozedUntil = System.currentTimeMillis() + 30L * 86_400_000L)
+            else it
+        }
+    }
+
+    /** Return threads whose geofence fired while away. */
+    fun collectArrived(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        _ui.update { s ->
+            s.copy(threads = s.threads.map { if (it.id in ids) it.copy(snoozedUntil = 0) else it })
+        }
+    }
 
     fun visibleThreads(): List<ThreadItem> {
         val s = _ui.value

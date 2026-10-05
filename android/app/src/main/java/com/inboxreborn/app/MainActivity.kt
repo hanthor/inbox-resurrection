@@ -4,11 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.inboxreborn.app.data.PlaceSnooze
 import com.inboxreborn.app.ui.BundleDetailScreen
 import com.inboxreborn.app.ui.InboxScreen
 import com.inboxreborn.app.ui.InboxViewModel
@@ -23,6 +25,36 @@ private sealed interface Route {
 
 class MainActivity : ComponentActivity() {
     private val vm: InboxViewModel by viewModels()
+    private var pendingPlaceIds: Set<String>? = null
+
+    private val locationPerms = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        pendingPlaceIds?.let { armPlaceSnooze(it) }
+        pendingPlaceIds = null
+    }
+
+    private fun pickPlace(ids: Set<String>) {
+        if (!PlaceSnooze.hasPermission(this)) {
+            pendingPlaceIds = ids
+            locationPerms.launch(PlaceSnooze.perms())
+            return
+        }
+        armPlaceSnooze(ids)
+    }
+
+    private fun armPlaceSnooze(ids: Set<String>) {
+        PlaceSnooze.capture(this) { latLng ->
+            if (latLng == null) return@capture
+            PlaceSnooze.arm(this, ids, latLng.first, latLng.second)
+            vm.snoozeToPlace(ids)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vm.collectArrived(PlaceSnooze.drainArrived(this))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +79,11 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 snoozeIds?.let { ids ->
-                    SnoozeSheet(ids = ids, vm = vm, onDone = { snoozeIds = null })
+                    SnoozeSheet(
+                        ids = ids, vm = vm,
+                        onDone = { snoozeIds = null },
+                        onPickPlace = { pickPlace(it) },
+                    )
                 }
                 if (showReminder) {
                     ReminderDialog(vm = vm, onDone = { showReminder = false })

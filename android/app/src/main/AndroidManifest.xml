@@ -10,6 +10,9 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Inbox Reborn"
         android:theme="@style/Theme.InboxReborn">
+        <receiver
+            android:name=".data.PlaceSnooze$PlaceReceiver"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

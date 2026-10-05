@@ -235,11 +235,14 @@ stream.addEventListener('click', (e) => {
   if (op === 'done') {
     t.done = true;
     pushUndo('done', () => { t.done = false; });
+    Backend.mirror('/api/done', { id });
     save(); render(); toast(`Marked "${t.subject}" done.`, true);
   } else if (op === 'restore') {
     t.done = false; save(); render();
   } else if (op === 'pin') {
-    t.pinned = !t.pinned; save(); render();
+    t.pinned = !t.pinned;
+    Backend.mirror('/api/pin', { id, pinned: t.pinned });
+    save(); render();
   } else if (op === 'snooze') {
     openSheet([id]);
   }
@@ -286,6 +289,7 @@ function applySnooze(ids, when) {
   state.threads.forEach((t) => { if (ids.includes(t.id)) t.snoozedUntil = when; });
   pushUndo('snooze', () => prev.forEach(([id, v]) => { state.threads.find((t) => t.id === id).snoozedUntil = v; }));
   sheet.hidden = true;
+  Backend.mirror('/api/snooze', { id: ids[0], fireAt: when });
   save(); render(); toast(`Snoozed until ${fmtDate(when)}.`, true);
 }
 document.getElementById('sheetCancel').onclick = () => { sheet.hidden = true; };
@@ -358,6 +362,18 @@ document.getElementById('searchBtn').onclick = () => {
 document.getElementById('searchInput').oninput = function () {
   query = this.value.trim().toLowerCase();
   render();
+};
+
+document.getElementById('syncBtn').onclick = async () => {
+  if (!Backend.on && !Backend.configure()) return;
+  toast('Syncing with Gmail…');
+  try {
+    await Backend.sync(state);
+    save(); render();
+    toast('Synced.');
+  } catch (e) {
+    toast('Sync failed (offline?).');
+  }
 };
 
 render();

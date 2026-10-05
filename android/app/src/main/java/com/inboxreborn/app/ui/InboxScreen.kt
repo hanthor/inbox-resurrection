@@ -165,9 +165,12 @@ fun InboxScreen(
                             ThreadRow(
                                 t = t,
                                 showRestore = state.tab == Tab.DONE,
-                                onDone = { vm.markDone(t.id) },
+                                onDone = { vm.markDone(t.id); vm.markDoneRemote(t.id) },
                                 onRestore = { vm.restore(t.id) },
-                                onPin = { vm.togglePin(t.id) },
+                                onPin = {
+                                    vm.togglePin(t.id)
+                                    vm.pinRemote(t.id, !t.pinned)
+                                },
                                 onSnooze = { onSnooze(setOf(t.id)) },
                             )
                         }
