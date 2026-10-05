@@ -3,10 +3,6 @@
 # Usage: ./scripts/publish-pages.sh
 set -e
 ROOT=$(git rev-parse --show-toplevel)
-TMP=$(mktemp -d)
-git --work-tree="$TMP" checkout main -- web
-cp "$TMP"/web/index.html "$TMP"/web/styles.css "$TMP"/web/app.js "$TMP"/web/backend.js "$ROOT/../__pages_tmp/" 2>/dev/null || true
-rm -rf "$TMP"
 cd "$ROOT"
 git checkout --orphan __pages_tmp 2>/dev/null || git checkout __pages_tmp
 git rm -rf -q .
