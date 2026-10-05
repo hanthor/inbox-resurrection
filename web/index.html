@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox Reborn — Phase 0 mocks</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="toolbar">
+  <span class="menu">☰</span>
+  <span class="title">Inbox</span>
+  <button id="pinToggle" class="pin-toggle" title="Pinned only">📍</button>
+  <span class="search">🔍</span>
+</header>
+
+<nav class="mocktabs">
+  <button data-screen="list" class="active">1 · Main list</button>
+  <button data-screen="bundle">2 · Bundle open</button>
+  <button data-screen="snooze">3 · Snooze grid</button>
+</nav>
+
+<!-- Screen 1: main list -->
+<section id="screen-list" class="screen">
+  <div class="day">Today</div>
+  <div class="thread pinned">
+    <div class="avatar">C</div>
+    <div class="body"><div class="subj">📌 Business trip <span class="meta">Chris Sadler · 2</span></div>
+    <div class="snip">I made a reservation for the hotel you talk…</div></div>
+    <button class="done" data-name="Business trip">✓</button>
+  </div>
+  <div class="thread bundle-row" data-goto="bundle">
+    <div class="avatar bundle">✈</div>
+    <div class="body"><div class="subj">Travel <span class="meta">3 new</span></div>
+    <div class="snip">Flight confirmation · Hotel · Boarding pass</div></div>
+    <button class="done" data-name="Travel bundle">✓</button>
+  </div>
+  <div class="thread">
+    <div class="avatar">D</div>
+    <div class="body"><div class="subj">Weekend at Yosemite <span class="meta">Debra Kumar</span></div>
+    <div class="snip">Here are photos from our weekend trip. <i>[2 photos]</i></div></div>
+    <button class="done" data-name="Weekend at Yosemite">✓</button>
+  </div>
+  <div class="day">Yesterday</div>
+  <div class="thread">
+    <div class="avatar">R</div>
+    <div class="body"><div class="subj">Photography classes <span class="meta">Richard, Matthew, me · 4</span></div>
+    <div class="snip">I really would love to get some photo…</div></div>
+    <button class="done" data-name="Photography classes">✓</button>
+  </div>
+  <button class="fab">+</button>
+</section>
+
+<!-- Screen 2: open bundle -->
+<section id="screen-bundle" class="screen hidden">
+  <div class="bundle-head">✈ Travel <span class="meta">3 · Sweep</span>
+    <button class="sweep">✓ Sweep</button>
+  </div>
+  <div class="thread"><div class="avatar">✈</div>
+    <div class="body"><div class="subj">Flight confirmation SFO → NRT</div>
+    <div class="assist">Assists: departs Fri 11:20 · Terminal 3 · <b>On time</b></div></div>
+    <button class="done" data-name="Flight confirmation">✓</button></div>
+  <div class="thread"><div class="avatar">H</div>
+    <div class="body"><div class="subj">Hotel: Imperial Tokyo, 3 nights</div>
+    <div class="assist">Assists: check-in 3 PM · map · confirmation #TK-881</div></div>
+    <button class="done" data-name="Hotel">✓</button></div>
+</section>
+
+<!-- Screen 3: snooze grid -->
+<section id="screen-snooze" class="screen hidden">
+  <h2>Snooze until…</h2>
+  <div class="grid">
+    <button data-s="Later today">Later<br>today</button>
+    <button data-s="Tomorrow">Tomorrow</button>
+    <button data-s="This weekend">This<br>weekend</button>
+    <button data-s="Next week">Next<br>week</button>
+    <button data-s="Someday">Someday</button>
+    <button data-s="Pick a date">Pick<br>date</button>
+  </div>
+  <p id="snoozeOut" class="banner" hidden></p>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

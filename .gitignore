@@ -1,0 +1,14 @@
+# Local-only reference material — NEVER commit these.
+# They are copyrighted by Google / their publishers and stay on your machine.
+inbox-last.apk
+inbox-dec/
+screenshots/press/
+screenshots/apk-assets/
+web/assets/*.png
+web/assets/*.webp
+web/assets/*.jpg
+
+# Runtime / OS
+node_modules/
+*.log
+.DS_Store
