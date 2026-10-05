@@ -12,3 +12,8 @@ web/assets/*.jpg
 node_modules/
 *.log
 .DS_Store
+
+# Android build outputs
+.gradle/
+build/
+local.properties
