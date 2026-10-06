@@ -3,7 +3,7 @@ name: Publish to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['web/**']
+    paths: ['web/**', '.github/workflows/publish.yml']
   workflow_dispatch:
 
 permissions:
