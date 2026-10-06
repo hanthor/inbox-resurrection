@@ -24,13 +24,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -162,17 +168,63 @@ fun InboxScreen(
                             }
                         }
                         item(key = t.id) {
-                            ThreadRow(
-                                t = t,
-                                showRestore = state.tab == Tab.DONE,
-                                onDone = { vm.markDone(t.id); vm.markDoneRemote(t.id) },
-                                onRestore = { vm.restore(t.id) },
-                                onPin = {
-                                    vm.togglePin(t.id)
-                                    vm.pinRemote(t.id, !t.pinned)
-                                },
-                                onSnooze = { onSnooze(setOf(t.id)) },
+                            // Swipe right = Done, swipe left = Snooze (matches web).
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                positionalThreshold = { it * 0.35f },
                             )
+                            var snoozeFired by remember(t.id) { mutableStateOf(false) }
+                            LaunchedEffect(dismissState.currentValue) {
+                                when (dismissState.currentValue) {
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        vm.markDone(t.id)
+                                        vm.markDoneRemote(t.id)
+                                    }
+                                    SwipeToDismissBoxValue.EndToStart -> {
+                                        if (!snoozeFired) {
+                                            snoozeFired = true
+                                            onSnooze(setOf(t.id))
+                                            dismissState.reset()
+                                        }
+                                    }
+                                    else -> Unit
+                                }
+                            }
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val dir = dismissState.dismissDirection
+                                    if (dir != null) {
+                                        Box(
+                                            Modifier.fillMaxSize()
+                                                .background(
+                                                    if (dir == SwipeToDismissBoxValue.StartToEnd)
+                                                        MaterialTheme.colorScheme.primaryContainer
+                                                    else MaterialTheme.colorScheme.tertiaryContainer,
+                                                )
+                                                .padding(horizontal = 20.dp),
+                                            contentAlignment = if (dir == SwipeToDismissBoxValue.StartToEnd)
+                                                Alignment.CenterStart else Alignment.CenterEnd,
+                                        ) {
+                                            Text(
+                                                if (dir == SwipeToDismissBoxValue.StartToEnd) "✓ Done"
+                                                else "◷ Snooze",
+                                            )
+                                        }
+                                    }
+                                },
+                            ) {
+                                ThreadRow(
+                                    t = t,
+                                    showRestore = state.tab == Tab.DONE,
+                                    onDone = { vm.markDone(t.id); vm.markDoneRemote(t.id) },
+                                    onRestore = { vm.restore(t.id) },
+                                    onPin = {
+                                        vm.togglePin(t.id)
+                                        vm.pinRemote(t.id, !t.pinned)
+                                    },
+                                    onSnooze = { onSnooze(setOf(t.id)) },
+                                )
+                            }
                         }
                     }
                 }

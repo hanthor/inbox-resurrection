@@ -17,3 +17,9 @@ node_modules/
 .gradle/
 build/
 local.properties
+
+# Playwright (regenerable)
+web/tests/node_modules/
+web/tests/test-results/
+web/tests/screenshots/current/
+web/tests/playwright/.cache/

@@ -143,10 +143,12 @@ function threadHtml(t) {
        <button data-op="snooze" title="Snooze">◷</button>
        <button data-op="done" class="done" title="Done">✓</button>`;
   return `<div class="thread${t.pinned ? ' pinned' : ''}" data-id="${t.id}">
+    <div class="thread-bg"><span>✓</span><span>◷</span></div>
+    <div class="swipe-inner">
     <div class="avatar ${av}">${letter}</div>
     <div class="body"><div class="subj">${pin}${esc(t.subject)} <span class="meta">${meta}</span></div>
     <div class="snip">${esc(t.snippet)}</div>${assist}${clock}</div>
-    <div class="rowbtns">${act}</div></div>`;
+    <div class="rowbtns">${act}</div></div></div>`;
 }
 
 function render() {
@@ -179,10 +181,12 @@ function render() {
       const b = state.bundles.find((x) => x.id === bid) || { name: bid, icon: '•' };
       const fresh = ts.filter((t) => Date.now() - t.ts < DAY).length;
       html += `<div class="thread" data-bundle="${bid}">
+        <div class="thread-bg"><span>✓✓</span><span></span></div>
+        <div class="swipe-inner">
         <div class="avatar bundle">${esc(b.icon)}</div>
         <div class="body"><div class="subj">${esc(b.name)} <span class="meta">${fresh ? fresh + ' new' : ts.length + ' items'}</span></div>
         <div class="snip">${esc(ts.slice(0, 3).map((t) => t.subject).join(' · '))}</div></div>
-        <div class="rowbtns"><button data-bop="sweep" title="Sweep bundle">✓✓</button></div></div>`;
+        <div class="rowbtns"><button data-bop="sweep" title="Sweep bundle">✓✓</button></div></div></div>`;
     }
     for (const t of loose) {
       const dl = dayLabel(t.ts);
@@ -197,6 +201,81 @@ function render() {
 
 /* ---------- ops + undo ---------- */
 function pushUndo(label, apply) { undoStack.push({ label, apply }); }
+
+function doDone(id) {
+  const t = state.threads.find((x) => x.id === id);
+  if (!t || t.done) return;
+  t.done = true;
+  pushUndo('done', () => { t.done = false; });
+  Backend.mirror('/api/done', { id });
+  save(); render(); toast(`Marked "${t.subject}" done.`, true);
+}
+
+/* ---------- swipe: right = Done (green), left = Snooze (amber) ----------
+   Pointer Events on .swipe-inner; vertical scroll untouched (touch-action).
+   Commit threshold 90px; anything less snaps back. */
+const SWIPE_COMMIT = 90;
+let drag = null;
+let suppressClick = false;
+
+function sweepBundleById(bid) {
+  const affected = state.threads.filter((t) => t.bundleId === bid && !t.done).map((t) => t.id);
+  if (!affected.length) return;
+  state.threads.forEach((t) => { if (affected.includes(t.id)) t.done = true; });
+  pushUndo('sweep', () => state.threads.forEach((t) => { if (affected.includes(t.id)) t.done = false; }));
+  save(); render(); toast('Swept bundle.', true);
+}
+
+stream.addEventListener('pointerdown', (e) => {
+  const inner = e.target.closest('.swipe-inner');
+  if (!inner || e.target.closest('button')) return;
+  const row = inner.closest('.thread');
+  if (!row) return;
+  const bundle = row.dataset.bundle;
+  if (!row.dataset.id && !bundle) return;
+  drag = { inner, id: row.dataset.id, bundle, x0: e.clientX, y0: e.clientY, dx: 0, locked: false };
+});
+
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x0;
+  const dy = e.clientY - drag.y0;
+  if (!drag.locked) {
+    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2) drag.locked = true;
+    else return;
+  }
+  drag.dx = Math.max(-160, Math.min(160, dx));
+  if (Math.abs(drag.dx) > 8) suppressClick = true;
+  drag.inner.style.transform = `translateX(${drag.dx}px)`;
+});
+
+function endDrag(commit) {
+  if (!drag) return;
+  const { inner, id, bundle, dx, locked } = drag;
+  drag = null;
+  if (!locked) return;
+  inner.classList.add('settle');
+  inner.style.transform = '';
+  setTimeout(() => inner.classList.remove('settle'), 200);
+  if (!commit) return;
+  if (bundle) {
+    if (dx > SWIPE_COMMIT) sweepBundleById(bundle);
+    return;
+  }
+  if (dx > SWIPE_COMMIT) doDone(id);
+  else if (dx < -SWIPE_COMMIT) openSheet([id]);
+}
+window.addEventListener('pointerup', () => endDrag(true));
+window.addEventListener('pointercancel', () => endDrag(false));
+
+// A drag ending over a row must not trigger its tap handlers.
+stream.addEventListener('click', (e) => {
+  if (suppressClick) {
+    suppressClick = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true);
 function toast(text, undoLabel) {
   const el = document.getElementById('toast');
   el.innerHTML = '';
@@ -219,11 +298,7 @@ function toast(text, undoLabel) {
 stream.addEventListener('click', (e) => {
   const bRow = e.target.closest('[data-bundle]');
   if (e.target.closest('[data-bop="sweep"]')) {
-    const bid = e.target.closest('[data-bundle]').dataset.bundle;
-    const affected = state.threads.filter((t) => t.bundleId === bid && !t.done).map((t) => t.id);
-    state.threads.forEach((t) => { if (affected.includes(t.id)) t.done = true; });
-    pushUndo('sweep', () => state.threads.forEach((t) => { if (affected.includes(t.id)) t.done = false; }));
-    save(); render(); toast(`Swept bundle.`, true);
+    sweepBundleById(e.target.closest('[data-bundle]').dataset.bundle);
     return;
   }
   if (bRow && !e.target.closest('button')) { openBundle(bRow.dataset.bundle); return; }
@@ -233,10 +308,7 @@ stream.addEventListener('click', (e) => {
   const t = state.threads.find((x) => x.id === id);
   const op = btn.dataset.op;
   if (op === 'done') {
-    t.done = true;
-    pushUndo('done', () => { t.done = false; });
-    Backend.mirror('/api/done', { id });
-    save(); render(); toast(`Marked "${t.subject}" done.`, true);
+    doDone(id);
   } else if (op === 'restore') {
     t.done = false; save(); render();
   } else if (op === 'pin') {
