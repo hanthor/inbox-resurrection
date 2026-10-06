@@ -12,7 +12,7 @@ touch .nojekyll
 git add index.html styles.css app.js backend.js .nojekyll
 git commit -q -m "Publish web app to GitHub Pages"
 git branch -f gh-pages __pages_tmp
-git push origin gh-pages
+git push -f origin gh-pages
 git checkout -q main
 rm -f index.html styles.css app.js backend.js .nojekyll
 echo published
