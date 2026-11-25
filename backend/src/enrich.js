@@ -23,13 +23,15 @@ const PATTERNS = [
   },
   {
     kind: 'bill',
-    re: /\b(due|payment due|amount due)[^.\n]{0,40}(\$[\d,]+\.\d{2}|\d+\s?(USD|EUR))?/i,
+    // The gap may not consume '$' or digits: a greedy gap would swallow the amount
+    // and the optional amount group would then match empty.
+    re: /\b(due|payment due|amount due)[^.\n$\d]{0,40}(\$[\d,]+\.\d{2}|\d+\s?(USD|EUR))?/i,
     describe: (m) => `Bill ${m[2] ? m[2] : 'due — consider a reminder'}`,
   },
   {
     kind: 'event',
     re: /\b(check-?in|reservation|booking)[^.\n]{0,60}/i,
-    describe: (m) => m[0].length > 80 ? m[0].slice(0, 80) + '…' : m[0],
+    describe: (m) => m[0],
   },
 ];
 
